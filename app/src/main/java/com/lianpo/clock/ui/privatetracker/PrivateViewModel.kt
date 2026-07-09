@@ -2,7 +2,9 @@ package com.lianpo.clock.ui.privatetracker
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lianpo.clock.data.database.dao.MemoDao
 import com.lianpo.clock.data.database.dao.PrivateRecordDao
+import com.lianpo.clock.data.database.entity.Memo
 import com.lianpo.clock.data.database.entity.PrivateRecord
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +21,8 @@ data class DailyCount(
 
 @HiltViewModel
 class PrivateViewModel @Inject constructor(
-    private val privateRecordDao: PrivateRecordDao
+    private val privateRecordDao: PrivateRecordDao,
+    private val memoDao: MemoDao
 ) : ViewModel() {
 
     private val _todayCount = MutableStateFlow(0)
@@ -46,8 +49,50 @@ class PrivateViewModel @Inject constructor(
     private val _monthlyData = MutableStateFlow<List<DailyCount>>(emptyList())
     val monthlyData: StateFlow<List<DailyCount>> = _monthlyData.asStateFlow()
 
+    private val _memos = MutableStateFlow<List<Memo>>(emptyList())
+    val memos: StateFlow<List<Memo>> = _memos.asStateFlow()
+
+    private val _showAddMemo = MutableStateFlow(false)
+    val showAddMemo: StateFlow<Boolean> = _showAddMemo.asStateFlow()
+
     init {
         loadStats()
+        loadMemos()
+    }
+
+    private fun loadMemos() {
+        viewModelScope.launch {
+            memoDao.getAllMemos().collect { list ->
+                _memos.value = list
+            }
+        }
+    }
+
+    fun addMemo(content: String) {
+        viewModelScope.launch {
+            memoDao.insert(Memo(content = content))
+            _showAddMemo.value = false
+        }
+    }
+
+    fun deleteMemo(memo: Memo) {
+        viewModelScope.launch {
+            memoDao.delete(memo)
+        }
+    }
+
+    fun togglePinMemo(memo: Memo) {
+        viewModelScope.launch {
+            memoDao.update(memo.copy(isPinned = !memo.isPinned))
+        }
+    }
+
+    fun showAddMemoDialog() {
+        _showAddMemo.value = true
+    }
+
+    fun hideAddMemoDialog() {
+        _showAddMemo.value = false
     }
 
     fun loadStats() {
@@ -55,7 +100,6 @@ class PrivateViewModel @Inject constructor(
             val cal = Calendar.getInstance()
             val now = System.currentTimeMillis()
 
-            // 今日
             cal.set(Calendar.HOUR_OF_DAY, 0)
             cal.set(Calendar.MINUTE, 0)
             cal.set(Calendar.SECOND, 0)
@@ -64,7 +108,6 @@ class PrivateViewModel @Inject constructor(
             cal.add(Calendar.DAY_OF_MONTH, 1)
             val todayEnd = cal.timeInMillis
 
-            // 本周
             cal.timeInMillis = System.currentTimeMillis()
             cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
             cal.set(Calendar.HOUR_OF_DAY, 0)
@@ -73,7 +116,6 @@ class PrivateViewModel @Inject constructor(
             cal.set(Calendar.MILLISECOND, 0)
             val weekStart = cal.timeInMillis
 
-            // 本月
             cal.timeInMillis = System.currentTimeMillis()
             cal.set(Calendar.DAY_OF_MONTH, 1)
             cal.set(Calendar.HOUR_OF_DAY, 0)
@@ -82,7 +124,6 @@ class PrivateViewModel @Inject constructor(
             cal.set(Calendar.MILLISECOND, 0)
             val monthStart = cal.timeInMillis
 
-            // 本年
             cal.timeInMillis = System.currentTimeMillis()
             cal.set(Calendar.MONTH, Calendar.JANUARY)
             cal.set(Calendar.DAY_OF_MONTH, 1)
@@ -97,14 +138,12 @@ class PrivateViewModel @Inject constructor(
             _monthCount.value = privateRecordDao.getCountBetween(monthStart, now)
             _yearCount.value = privateRecordDao.getCountBetween(yearStart, now)
 
-            // 获取最近记录
             privateRecordDao.getAllRecords().collect { records ->
                 _totalCount.value = records.size
-                _recentRecords.value = records.take(30)
+                _recentRecords.value = records.take(60)
             }
         }
 
-        // 加载本周每日数据
         viewModelScope.launch {
             val weekly = mutableListOf<DailyCount>()
             val cal = Calendar.getInstance()
@@ -124,7 +163,6 @@ class PrivateViewModel @Inject constructor(
             _weeklyData.value = weekly
         }
 
-        // 加载本月每日数据
         viewModelScope.launch {
             val monthly = mutableListOf<DailyCount>()
             val cal = Calendar.getInstance()

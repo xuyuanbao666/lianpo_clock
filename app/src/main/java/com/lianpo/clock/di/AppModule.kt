@@ -3,6 +3,7 @@ package com.lianpo.clock.di
 import android.content.Context
 import androidx.room.Room
 import com.lianpo.clock.data.database.AppDatabase
+import com.lianpo.clock.data.database.dao.MemoDao
 import com.lianpo.clock.data.database.dao.PomodoroDao
 import com.lianpo.clock.data.database.dao.PrivateRecordDao
 import com.lianpo.clock.data.database.dao.TaskDao
@@ -44,5 +45,11 @@ object AppModule {
     @Singleton
     fun providePrivateRecordDao(appDatabase: AppDatabase): PrivateRecordDao {
         return appDatabase.privateRecordDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideMemoDao(appDatabase: AppDatabase): MemoDao {
+        return appDatabase.memoDao()
     }
 }

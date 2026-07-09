@@ -1,17 +1,24 @@
 package com.lianpo.clock.ui.privatetracker
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -20,6 +27,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -39,8 +47,45 @@ fun PrivateScreen(
     val recentRecords by viewModel.recentRecords.collectAsState()
     val weeklyData by viewModel.weeklyData.collectAsState()
     val monthlyData by viewModel.monthlyData.collectAsState()
+    val memos by viewModel.memos.collectAsState()
+    val showAddMemo by viewModel.showAddMemo.collectAsState()
     val dateFormat = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
-    val dayFormat = remember { SimpleDateFormat("MM/dd", Locale.getDefault()) }
+    val gridDateFormat = remember { SimpleDateFormat("MM/dd", Locale.getDefault()) }
+    var memoText by remember { mutableStateOf("") }
+    var selectedTab by remember { mutableIntStateOf(0) }
+
+    if (showAddMemo) {
+        AlertDialog(
+            onDismissRequest = { viewModel.hideAddMemoDialog() },
+            title = { Text("添加备忘录") },
+            text = {
+                OutlinedTextField(
+                    value = memoText,
+                    onValueChange = { memoText = it },
+                    placeholder = { Text("记录你的想法...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (memoText.isNotBlank()) {
+                            viewModel.addMemo(memoText)
+                            memoText = ""
+                        }
+                    }
+                ) {
+                    Text("保存")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.hideAddMemoDialog() }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -49,6 +94,11 @@ fun PrivateScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { viewModel.showAddMemoDialog() }) {
+                        Icon(Icons.Default.Add, contentDescription = "添加备忘录")
                     }
                 }
             )
@@ -66,10 +116,10 @@ fun PrivateScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // 频率统计
                 Card(
@@ -100,14 +150,15 @@ fun PrivateScreen(
                 }
             }
 
+            // 统计卡片
             item {
-                // 统计卡片 2x2
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     StatCard("今日", todayCount, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
                     StatCard("本周", weekCount, MaterialTheme.colorScheme.secondary, Modifier.weight(1f))
+                    StatCard("本月", monthCount, MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
                 }
             }
 
@@ -116,112 +167,179 @@ fun PrivateScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    StatCard("本月", monthCount, MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
                     StatCard("本年", yearCount, MaterialTheme.colorScheme.error, Modifier.weight(1f))
+                    StatCard("总计", recentRecords.size, MaterialTheme.colorScheme.outline, Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
 
-            // 本周柱状图
+            // Tab切换
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "本周趋势",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        WeeklyBarChart(
-                            data = weeklyData,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(150.dp)
-                        )
-                    }
-                }
-            }
-
-            // 本月曲线图
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "本月趋势",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        MonthlyLineChart(
-                            data = monthlyData,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(150.dp)
-                        )
-                    }
-                }
-            }
-
-            // 最近记录
-            item {
-                Text(
-                    text = "最近记录",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            if (recentRecords.isEmpty()) {
-                item {
-                    Text(
-                        text = "暂无记录，点击右下角按钮开始记录",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                TabRow(selectedTabIndex = selectedTab) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { Text("记录") }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text("图表") }
+                    )
+                    Tab(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        text = { Text("备忘录") }
                     )
                 }
-            } else {
-                items(recentRecords) { record ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
+            }
+
+            when (selectedTab) {
+                0 -> {
+                    // 小格子显示记录
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(12.dp)) {
                                 Text(
-                                    text = dateFormat.format(Date(record.timestamp)),
-                                    style = MaterialTheme.typography.bodyMedium
+                                    text = "最近记录",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
                                 )
-                                val cal = Calendar.getInstance().apply { timeInMillis = record.timestamp }
-                                val hour = cal.get(Calendar.HOUR_OF_DAY)
-                                val timeOfDay = when {
-                                    hour < 6 -> "凌晨"
-                                    hour < 12 -> "上午"
-                                    hour < 18 -> "下午"
-                                    else -> "晚上"
+                                Spacer(modifier = Modifier.height(8.dp))
+                                if (recentRecords.isEmpty()) {
+                                    Text(
+                                        text = "暂无记录",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                } else {
+                                    RecordGrid(
+                                        records = recentRecords,
+                                        dateFormat = gridDateFormat,
+                                        onDelete = { viewModel.deleteRecord(it) }
+                                    )
                                 }
+                            }
+                        }
+                    }
+                }
+                1 -> {
+                    // 本周柱状图
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    text = timeOfDay,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    text = "本周趋势",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                WeeklyBarChart(
+                                    data = weeklyData,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(150.dp)
                                 )
                             }
-                            IconButton(
-                                onClick = { viewModel.deleteRecord(record) },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "删除",
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(18.dp)
+                        }
+                    }
+
+                    // 本月曲线图
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "本月趋势",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
                                 )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                MonthlyLineChart(
+                                    data = monthlyData,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(150.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                2 -> {
+                    // 备忘录
+                    if (memos.isEmpty()) {
+                        item {
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(32.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "点击右上角 + 添加备忘录",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        items(memos) { memo ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (memo.isPinned) {
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    }
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = memo.content,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = dateFormat.format(Date(memo.timestamp)),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { viewModel.togglePinMemo(memo) },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.PushPin,
+                                            contentDescription = "置顶",
+                                            tint = if (memo.isPinned) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            },
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { viewModel.deleteMemo(memo) },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "删除",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -230,6 +348,92 @@ fun PrivateScreen(
 
             item {
                 Spacer(modifier = Modifier.height(80.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecordGrid(
+    records: List<com.lianpo.clock.data.database.entity.PrivateRecord>,
+    dateFormat: SimpleDateFormat,
+    onDelete: (com.lianpo.clock.data.database.entity.PrivateRecord) -> Unit
+) {
+    var showDeleteDialog by remember { mutableStateOf<com.lianpo.clock.data.database.entity.PrivateRecord?>(null) }
+
+    showDeleteDialog?.let { record ->
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            title = { Text("删除记录") },
+            text = { Text("确定要删除这条记录吗？") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete(record)
+                    showDeleteDialog = null
+                }) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = null }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    val chunkedRecords = records.chunked(4)
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        chunkedRecords.forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                row.forEach { record ->
+                    val cal = Calendar.getInstance().apply { timeInMillis = record.timestamp }
+                    val hour = cal.get(Calendar.HOUR_OF_DAY)
+                    val bgColor = when {
+                        hour < 6 -> Color(0xFF7C4DFF).copy(alpha = 0.3f) // 凌晨 - 紫色
+                        hour < 12 -> Color(0xFF4CAF50).copy(alpha = 0.3f) // 上午 - 绿色
+                        hour < 18 -> Color(0xFF2196F3).copy(alpha = 0.3f) // 下午 - 蓝色
+                        else -> Color(0xFFFF9800).copy(alpha = 0.3f) // 晚上 - 橙色
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1.8f)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(bgColor)
+                            .padding(4.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = dateFormat.format(Date(record.timestamp)),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 9.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "${String.format("%02d", cal.get(Calendar.HOUR_OF_DAY))}:${String.format("%02d", cal.get(Calendar.MINUTE))}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 8.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                // 填充空位
+                repeat(4 - row.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
         }
     }
@@ -246,19 +450,19 @@ private fun StatCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "$count",
-                fontSize = 36.sp,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = color
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
