@@ -26,7 +26,7 @@ enum class PomodoroType {
 data class PomodoroRecord(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val taskId: Long,
+    val taskId: Long? = null,
     val startTime: Long,
     val endTime: Long? = null,
     val duration: Long = 0,

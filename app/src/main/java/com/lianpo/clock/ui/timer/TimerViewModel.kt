@@ -16,8 +16,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -35,6 +37,9 @@ class TimerViewModel @Inject constructor(
     private var shortBreakDuration = prefs.getInt("short_break_duration", 5)
     private var longBreakDuration = prefs.getInt("long_break_duration", 15)
     private var longBreakInterval = prefs.getInt("long_break_interval", 4)
+
+    val activeTasks: StateFlow<List<Task>> = taskRepository.getActiveTasks()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _timerState = MutableStateFlow(TimerState.IDLE)
     val timerState: StateFlow<TimerState> = _timerState.asStateFlow()
@@ -54,6 +59,9 @@ class TimerViewModel @Inject constructor(
     private val _currentTask = MutableStateFlow<Task?>(null)
     val currentTask: StateFlow<Task?> = _currentTask.asStateFlow()
 
+    private val _showTaskSelector = MutableStateFlow(false)
+    val showTaskSelector: StateFlow<Boolean> = _showTaskSelector.asStateFlow()
+
     private var timerJob: Job? = null
     private var startTime: Long = 0L
 
@@ -64,10 +72,22 @@ class TimerViewModel @Inject constructor(
         longBreakInterval = prefs.getInt("long_break_interval", 4)
     }
 
+    fun showTaskSelector() {
+        _showTaskSelector.value = true
+    }
+
+    fun hideTaskSelector() {
+        _showTaskSelector.value = false
+    }
+
+    fun selectTask(task: Task?) {
+        _currentTask.value = task
+        _showTaskSelector.value = false
+    }
+
     fun startTimer() {
         if (_timerState.value == TimerState.RUNNING) return
 
-        // 每次开始时重新加载设置
         loadSettings()
 
         if (_timerState.value == TimerState.IDLE || _timerState.value == TimerState.FINISHED) {
@@ -105,10 +125,6 @@ class TimerViewModel @Inject constructor(
         onTimerFinished()
     }
 
-    fun setCurrentTask(task: Task?) {
-        _currentTask.value = task
-    }
-
     private fun onTimerFinished() {
         _timerState.value = TimerState.FINISHED
         soundPlayer.playSound("default")
@@ -119,15 +135,15 @@ class TimerViewModel @Inject constructor(
     }
 
     private suspend fun recordPomodoro() {
-        val task = _currentTask.value ?: return
         val pomodoroType = when (_timerType.value) {
             TimerType.WORK -> PomodoroType.WORK
             TimerType.SHORT_BREAK -> PomodoroType.SHORT_BREAK
             TimerType.LONG_BREAK -> PomodoroType.LONG_BREAK
         }
 
+        val task = _currentTask.value
         val record = PomodoroRecord(
-            taskId = task.id,
+            taskId = task?.id,
             startTime = startTime,
             endTime = System.currentTimeMillis(),
             duration = (_totalTime.value - _timeRemaining.value).toLong(),
@@ -136,16 +152,28 @@ class TimerViewModel @Inject constructor(
         )
         pomodoroRepository.insertRecord(record)
 
+        // 只有工作阶段完成且有任务时才增加计数
         if (_timerType.value == TimerType.WORK && _timeRemaining.value == 0) {
-            taskRepository.incrementPomodoroCount(task.id)
             _completedPomodoros.value = _completedPomodoros.value + 1
+
+            if (task != null) {
+                // 增加任务的番茄钟计数
+                val newCount = task.pomodoroCount + 1
+                taskRepository.incrementPomodoroCount(task.id)
+
+                // 检查是否达到目标，自动标记完成
+                if (newCount >= task.targetPomodoroCount) {
+                    taskRepository.markTaskAsCompleted(task.id)
+                    _currentTask.value = null // 任务完成，清除当前任务
+                }
+            }
         }
     }
 
     private fun moveToNextPhase() {
         when (_timerType.value) {
             TimerType.WORK -> {
-                val nextType = if ((_completedPomodoros.value) % longBreakInterval == 0 && _completedPomodoros.value > 0) {
+                val nextType = if (_completedPomodoros.value % longBreakInterval == 0 && _completedPomodoros.value > 0) {
                     TimerType.LONG_BREAK
                 } else {
                     TimerType.SHORT_BREAK

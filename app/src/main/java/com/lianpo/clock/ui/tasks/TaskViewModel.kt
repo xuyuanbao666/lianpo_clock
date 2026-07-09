@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -103,9 +102,11 @@ class TaskViewModel @Inject constructor(
     fun toggleTaskCompletion(task: Task) {
         viewModelScope.launch {
             if (task.isCompleted) {
+                // 重新打开任务
                 val updated = task.copy(isCompleted = false, completedAt = null)
                 taskRepository.updateTask(updated)
             } else {
+                // 手动标记完成
                 taskRepository.markTaskAsCompleted(task.id)
             }
         }
