@@ -15,7 +15,7 @@ import com.lianpo.clock.data.database.entity.Task
 
 @Database(
     entities = [Task::class, PomodoroRecord::class, PrivateRecord::class, Memo::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

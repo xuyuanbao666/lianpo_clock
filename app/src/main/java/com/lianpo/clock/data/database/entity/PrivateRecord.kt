@@ -7,5 +7,7 @@ import androidx.room.PrimaryKey
 data class PrivateRecord(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val memo: String = "",
+    val mood: String = ""
 )

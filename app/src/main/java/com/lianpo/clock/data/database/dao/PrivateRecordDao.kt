@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Update
 import com.lianpo.clock.data.database.entity.PrivateRecord
 import kotlinx.coroutines.flow.Flow
 
@@ -20,6 +21,9 @@ interface PrivateRecordDao {
 
     @Insert
     suspend fun insert(record: PrivateRecord): Long
+
+    @Update
+    suspend fun update(record: PrivateRecord)
 
     @Delete
     suspend fun delete(record: PrivateRecord)

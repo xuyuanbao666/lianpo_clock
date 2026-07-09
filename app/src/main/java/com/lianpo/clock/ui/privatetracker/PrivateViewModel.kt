@@ -198,6 +198,20 @@ class PrivateViewModel @Inject constructor(
         }
     }
 
+    fun updateRecordMood(record: PrivateRecord, mood: String) {
+        viewModelScope.launch {
+            privateRecordDao.update(record.copy(mood = mood))
+            loadStats()
+        }
+    }
+
+    fun updateRecordMemo(record: PrivateRecord, memo: String) {
+        viewModelScope.launch {
+            privateRecordDao.update(record.copy(memo = memo))
+            loadStats()
+        }
+    }
+
     fun getFrequency(): String {
         val yearCount = _yearCount.value
         if (yearCount == 0) return "暂无数据"
