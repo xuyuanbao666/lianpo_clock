@@ -87,7 +87,7 @@ private fun TimerSettingsSection(
         Column(modifier = Modifier.padding(16.dp)) {
             Text(text = "计时器设置", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(16.dp))
-            SettingSlider(label = "工作时长", value = workDuration, valueRange = 1..60, onValueChange = onWorkDurationChange, suffix = "分钟")
+            SettingSlider(label = "工作时长", value = workDuration, valueRange = 1..180, onValueChange = onWorkDurationChange, suffix = "分钟")
             SettingSlider(label = "短休息时长", value = shortBreakDuration, valueRange = 1..30, onValueChange = onShortBreakDurationChange, suffix = "分钟")
             SettingSlider(label = "长休息时长", value = longBreakDuration, valueRange = 1..60, onValueChange = onLongBreakDurationChange, suffix = "分钟")
             SettingSlider(label = "长休息间隔", value = longBreakInterval, valueRange = 2..10, onValueChange = onLongBreakIntervalChange, suffix = "个番茄钟")
