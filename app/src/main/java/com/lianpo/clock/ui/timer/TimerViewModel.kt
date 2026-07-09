@@ -7,6 +7,7 @@ import com.lianpo.clock.data.database.entity.PomodoroType
 import com.lianpo.clock.data.database.entity.Task
 import com.lianpo.clock.data.repository.PomodoroRepository
 import com.lianpo.clock.data.repository.TaskRepository
+import com.lianpo.clock.util.SoundPlayer
 import com.lianpo.clock.util.TimerConfig
 import com.lianpo.clock.util.TimerState
 import com.lianpo.clock.util.TimerType
@@ -22,7 +23,8 @@ import javax.inject.Inject
 @HiltViewModel
 class TimerViewModel @Inject constructor(
     private val pomodoroRepository: PomodoroRepository,
-    private val taskRepository: TaskRepository
+    private val taskRepository: TaskRepository,
+    private val soundPlayer: SoundPlayer
 ) : ViewModel() {
 
     private val config = TimerConfig()
@@ -91,6 +93,7 @@ class TimerViewModel @Inject constructor(
 
     private fun onTimerFinished() {
         _timerState.value = TimerState.FINISHED
+        soundPlayer.playSound("default")
         viewModelScope.launch {
             recordPomodoro()
             moveToNextPhase()
@@ -160,5 +163,6 @@ class TimerViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         timerJob?.cancel()
+        soundPlayer.stopSound()
     }
 }
