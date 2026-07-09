@@ -1,5 +1,10 @@
 package com.lianpo.clock.ui.timer
 
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.os.IBinder
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,10 +18,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.lianpo.clock.service.TimerService
 import com.lianpo.clock.ui.theme.BreakGreen
 import com.lianpo.clock.ui.theme.TomatoRed
 import com.lianpo.clock.ui.timer.components.CircularProgress
@@ -30,6 +37,7 @@ import com.lianpo.clock.util.TimerType
 fun TimerScreen(
     viewModel: TimerViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val timerState by viewModel.timerState.collectAsState()
     val timerType by viewModel.timerType.collectAsState()
     val timeRemaining by viewModel.timeRemaining.collectAsState()
@@ -37,6 +45,43 @@ fun TimerScreen(
     val currentTask by viewModel.currentTask.collectAsState()
     val activeTasks by viewModel.activeTasks.collectAsState()
     val showTaskSelector by viewModel.showTaskSelector.collectAsState()
+
+    var timerService by remember { mutableStateOf<TimerService?>(null) }
+    var isBound by remember { mutableStateOf(false) }
+
+    val connection = remember {
+        object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                val binder = service as TimerService.TimerBinder
+                timerService = binder.getService()
+                isBound = true
+            }
+
+            override fun onServiceDisconnected(name: ComponentName?) {
+                timerService = null
+                isBound = false
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        val intent = Intent(context, TimerService::class.java)
+        TimerService.start(context)
+        context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+
+        onDispose {
+            if (isBound) {
+                context.unbindService(connection)
+            }
+        }
+    }
+
+    // 更新通知
+    LaunchedEffect(timerState, timerType, timeRemaining) {
+        if (isBound) {
+            timerService?.updateTimerState(timerState, timerType, timeRemaining, 0)
+        }
+    }
 
     val progressColor = when (timerType) {
         TimerType.WORK -> TomatoRed
