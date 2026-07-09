@@ -1,5 +1,6 @@
 package com.lianpo.clock.ui.timer
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lianpo.clock.data.database.entity.PomodoroRecord
@@ -8,10 +9,10 @@ import com.lianpo.clock.data.database.entity.Task
 import com.lianpo.clock.data.repository.PomodoroRepository
 import com.lianpo.clock.data.repository.TaskRepository
 import com.lianpo.clock.util.SoundPlayer
-import com.lianpo.clock.util.TimerConfig
 import com.lianpo.clock.util.TimerState
 import com.lianpo.clock.util.TimerType
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,10 +25,16 @@ import javax.inject.Inject
 class TimerViewModel @Inject constructor(
     private val pomodoroRepository: PomodoroRepository,
     private val taskRepository: TaskRepository,
-    private val soundPlayer: SoundPlayer
+    private val soundPlayer: SoundPlayer,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    private val config = TimerConfig()
+    private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+
+    private var workDuration = prefs.getInt("work_duration", 25)
+    private var shortBreakDuration = prefs.getInt("short_break_duration", 5)
+    private var longBreakDuration = prefs.getInt("long_break_duration", 15)
+    private var longBreakInterval = prefs.getInt("long_break_interval", 4)
 
     private val _timerState = MutableStateFlow(TimerState.IDLE)
     val timerState: StateFlow<TimerState> = _timerState.asStateFlow()
@@ -35,10 +42,10 @@ class TimerViewModel @Inject constructor(
     private val _timerType = MutableStateFlow(TimerType.WORK)
     val timerType: StateFlow<TimerType> = _timerType.asStateFlow()
 
-    private val _timeRemaining = MutableStateFlow(config.workDuration * 60)
+    private val _timeRemaining = MutableStateFlow(workDuration * 60)
     val timeRemaining: StateFlow<Int> = _timeRemaining.asStateFlow()
 
-    private val _totalTime = MutableStateFlow(config.workDuration * 60)
+    private val _totalTime = MutableStateFlow(workDuration * 60)
     val totalTime: StateFlow<Int> = _totalTime.asStateFlow()
 
     private val _completedPomodoros = MutableStateFlow(0)
@@ -50,8 +57,18 @@ class TimerViewModel @Inject constructor(
     private var timerJob: Job? = null
     private var startTime: Long = 0L
 
+    private fun loadSettings() {
+        workDuration = prefs.getInt("work_duration", 25)
+        shortBreakDuration = prefs.getInt("short_break_duration", 5)
+        longBreakDuration = prefs.getInt("long_break_duration", 15)
+        longBreakInterval = prefs.getInt("long_break_interval", 4)
+    }
+
     fun startTimer() {
         if (_timerState.value == TimerState.RUNNING) return
+
+        // 每次开始时重新加载设置
+        loadSettings()
 
         if (_timerState.value == TimerState.IDLE || _timerState.value == TimerState.FINISHED) {
             startTime = System.currentTimeMillis()
@@ -78,8 +95,9 @@ class TimerViewModel @Inject constructor(
         timerJob?.cancel()
         _timerState.value = TimerState.IDLE
         _timerType.value = TimerType.WORK
-        _timeRemaining.value = config.workDuration * 60
-        _totalTime.value = config.workDuration * 60
+        loadSettings()
+        _timeRemaining.value = workDuration * 60
+        _totalTime.value = workDuration * 60
     }
 
     fun skipToNext() {
@@ -127,23 +145,23 @@ class TimerViewModel @Inject constructor(
     private fun moveToNextPhase() {
         when (_timerType.value) {
             TimerType.WORK -> {
-                val nextType = if ((_completedPomodoros.value) % config.longBreakInterval == 0 && _completedPomodoros.value > 0) {
+                val nextType = if ((_completedPomodoros.value) % longBreakInterval == 0 && _completedPomodoros.value > 0) {
                     TimerType.LONG_BREAK
                 } else {
                     TimerType.SHORT_BREAK
                 }
                 _timerType.value = nextType
                 val duration = when (nextType) {
-                    TimerType.LONG_BREAK -> config.longBreakDuration * 60
-                    else -> config.shortBreakDuration * 60
+                    TimerType.LONG_BREAK -> longBreakDuration * 60
+                    else -> shortBreakDuration * 60
                 }
                 _timeRemaining.value = duration
                 _totalTime.value = duration
             }
             TimerType.SHORT_BREAK, TimerType.LONG_BREAK -> {
                 _timerType.value = TimerType.WORK
-                _timeRemaining.value = config.workDuration * 60
-                _totalTime.value = config.workDuration * 60
+                _timeRemaining.value = workDuration * 60
+                _totalTime.value = workDuration * 60
             }
         }
         _timerState.value = TimerState.IDLE
