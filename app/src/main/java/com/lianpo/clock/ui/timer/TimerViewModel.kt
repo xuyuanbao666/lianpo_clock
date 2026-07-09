@@ -29,7 +29,7 @@ class TimerViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("lianpo_clock_settings", Context.MODE_PRIVATE)
 
     private var workDuration = prefs.getInt("work_duration", 25)
     private var shortBreakDuration = prefs.getInt("short_break_duration", 5)
