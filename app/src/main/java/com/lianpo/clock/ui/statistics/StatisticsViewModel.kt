@@ -2,7 +2,6 @@ package com.lianpo.clock.ui.statistics
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lianpo.clock.data.database.entity.PomodoroType
 import com.lianpo.clock.data.repository.PomodoroRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,9 +61,10 @@ class StatisticsViewModel @Inject constructor(
         val focusDuration = pomodoroRepository.getTotalWorkDurationBetween(startOfDay, endOfDay)
         val pomodoroCount = pomodoroRepository.getWorkRecordCountBetween(startOfDay, endOfDay)
 
+        // duration是秒，转换为分钟
         _todayStats.value = DailyStats(
             date = startOfDay,
-            focusMinutes = (focusDuration / 60000).toInt(),
+            focusMinutes = (focusDuration / 60).toInt(),
             pomodoroCount = pomodoroCount
         )
     }
@@ -88,7 +88,7 @@ class StatisticsViewModel @Inject constructor(
             weeklyData.add(
                 DailyStats(
                     date = startOfDay,
-                    focusMinutes = (focusDuration / 60000).toInt(),
+                    focusMinutes = (focusDuration / 60).toInt(),
                     pomodoroCount = pomodoroCount
                 )
             )
@@ -113,7 +113,7 @@ class StatisticsViewModel @Inject constructor(
         val streak = calculateStreak()
 
         _totalStats.value = TotalStats(
-            totalFocusMinutes = (totalFocusDuration / 60000).toInt(),
+            totalFocusMinutes = (totalFocusDuration / 60).toInt(),
             totalPomodoros = totalPomodoros,
             currentStreak = streak
         )
