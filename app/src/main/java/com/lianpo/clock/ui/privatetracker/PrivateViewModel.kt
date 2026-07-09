@@ -12,6 +12,11 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import javax.inject.Inject
 
+data class DailyCount(
+    val date: Long,
+    val count: Int
+)
+
 @HiltViewModel
 class PrivateViewModel @Inject constructor(
     private val privateRecordDao: PrivateRecordDao
@@ -35,6 +40,12 @@ class PrivateViewModel @Inject constructor(
     private val _recentRecords = MutableStateFlow<List<PrivateRecord>>(emptyList())
     val recentRecords: StateFlow<List<PrivateRecord>> = _recentRecords.asStateFlow()
 
+    private val _weeklyData = MutableStateFlow<List<DailyCount>>(emptyList())
+    val weeklyData: StateFlow<List<DailyCount>> = _weeklyData.asStateFlow()
+
+    private val _monthlyData = MutableStateFlow<List<DailyCount>>(emptyList())
+    val monthlyData: StateFlow<List<DailyCount>> = _monthlyData.asStateFlow()
+
     init {
         loadStats()
     }
@@ -42,6 +53,7 @@ class PrivateViewModel @Inject constructor(
     fun loadStats() {
         viewModelScope.launch {
             val cal = Calendar.getInstance()
+            val now = System.currentTimeMillis()
 
             // 今日
             cal.set(Calendar.HOUR_OF_DAY, 0)
@@ -80,8 +92,6 @@ class PrivateViewModel @Inject constructor(
             cal.set(Calendar.MILLISECOND, 0)
             val yearStart = cal.timeInMillis
 
-            val now = System.currentTimeMillis()
-
             _todayCount.value = privateRecordDao.getCountBetween(todayStart, todayEnd)
             _weekCount.value = privateRecordDao.getCountBetween(weekStart, now)
             _monthCount.value = privateRecordDao.getCountBetween(monthStart, now)
@@ -90,8 +100,49 @@ class PrivateViewModel @Inject constructor(
             // 获取最近记录
             privateRecordDao.getAllRecords().collect { records ->
                 _totalCount.value = records.size
-                _recentRecords.value = records.take(20)
+                _recentRecords.value = records.take(30)
             }
+        }
+
+        // 加载本周每日数据
+        viewModelScope.launch {
+            val weekly = mutableListOf<DailyCount>()
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+
+            for (i in 0 until 7) {
+                val dayStart = cal.timeInMillis
+                cal.add(Calendar.DAY_OF_MONTH, 1)
+                val dayEnd = cal.timeInMillis
+                val count = privateRecordDao.getCountBetween(dayStart, dayEnd)
+                weekly.add(DailyCount(dayStart, count))
+            }
+            _weeklyData.value = weekly
+        }
+
+        // 加载本月每日数据
+        viewModelScope.launch {
+            val monthly = mutableListOf<DailyCount>()
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.DAY_OF_MONTH, 1)
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+
+            val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+            for (i in 0 until daysInMonth) {
+                val dayStart = cal.timeInMillis
+                cal.add(Calendar.DAY_OF_MONTH, 1)
+                val dayEnd = cal.timeInMillis
+                val count = privateRecordDao.getCountBetween(dayStart, dayEnd)
+                monthly.add(DailyCount(dayStart, count))
+            }
+            _monthlyData.value = monthly
         }
     }
 
@@ -124,6 +175,7 @@ class PrivateViewModel @Inject constructor(
         val daysPassed = ((now - yearStart) / (24 * 60 * 60 * 1000)).toInt().coerceAtLeast(1)
         val avgPerDay = yearCount.toFloat() / daysPassed
         val avgPerWeek = yearCount.toFloat() / (daysPassed / 7f).coerceAtLeast(1f)
-        return String.format("日均 %.1f 次 | 周均 %.1f 次", avgPerDay, avgPerWeek)
+        val avgPerMonth = yearCount.toFloat() / 12f
+        return String.format("日均 %.1f | 周均 %.1f | 月均 %.1f", avgPerDay, avgPerWeek, avgPerMonth)
     }
 }
