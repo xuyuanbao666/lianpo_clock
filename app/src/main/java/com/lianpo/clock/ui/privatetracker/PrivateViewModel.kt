@@ -64,6 +64,12 @@ class PrivateViewModel @Inject constructor(
     private val _showAddMemo = MutableStateFlow(false)
     val showAddMemo: StateFlow<Boolean> = _showAddMemo.asStateFlow()
 
+    private val _selectedDay = MutableStateFlow<Int?>(null)
+    val selectedDay: StateFlow<Int?> = _selectedDay.asStateFlow()
+
+    private val _selectedDayRecords = MutableStateFlow<List<PrivateRecord>>(emptyList())
+    val selectedDayRecords: StateFlow<List<PrivateRecord>> = _selectedDayRecords.asStateFlow()
+
     init {
         loadStats()
         loadMemos()
@@ -105,6 +111,28 @@ class PrivateViewModel @Inject constructor(
         _showAddMemo.value = false
     }
 
+    fun selectDay(day: Int) {
+        _selectedDay.value = day
+        loadSelectedDayRecords()
+    }
+
+    private fun loadSelectedDayRecords() {
+        viewModelScope.launch {
+            val day = _selectedDay.value ?: return@launch
+            val cal = Calendar.getInstance()
+            cal.set(_selectedYear.value, _selectedMonth.value, day, 0, 0, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            val dayStart = cal.timeInMillis
+
+            cal.add(Calendar.DAY_OF_MONTH, 1)
+            val dayEnd = cal.timeInMillis
+
+            _selectedDayRecords.value = _selectedMonthRecords.value.filter { record ->
+                record.timestamp >= dayStart && record.timestamp < dayEnd
+            }.sortedBy { it.timestamp }
+        }
+    }
+
     fun selectMonth(year: Int, month: Int) {
         _selectedYear.value = year
         _selectedMonth.value = month
@@ -117,6 +145,8 @@ class PrivateViewModel @Inject constructor(
         cal.add(Calendar.MONTH, -1)
         _selectedYear.value = cal.get(Calendar.YEAR)
         _selectedMonth.value = cal.get(Calendar.MONTH)
+        _selectedDay.value = null
+        _selectedDayRecords.value = emptyList()
         loadSelectedMonthRecords()
     }
 
@@ -126,6 +156,8 @@ class PrivateViewModel @Inject constructor(
         cal.add(Calendar.MONTH, 1)
         _selectedYear.value = cal.get(Calendar.YEAR)
         _selectedMonth.value = cal.get(Calendar.MONTH)
+        _selectedDay.value = null
+        _selectedDayRecords.value = emptyList()
         loadSelectedMonthRecords()
     }
 
