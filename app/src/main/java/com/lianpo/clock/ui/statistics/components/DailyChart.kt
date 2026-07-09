@@ -72,7 +72,7 @@ fun DailyChart(
                 y + textSize / 3,
                 android.graphics.Paint().apply {
                     color = android.graphics.Color.GRAY
-                    textSize = this@Canvas.textSize
+                    this.textSize = textSize
                     textAlign = android.graphics.Paint.Align.RIGHT
                 }
             )
@@ -101,7 +101,7 @@ fun DailyChart(
                 canvasHeight - padding + 15.dp.toPx(),
                 android.graphics.Paint().apply {
                     color = android.graphics.Color.GRAY
-                    textSize = this@Canvas.textSize
+                    this.textSize = textSize
                     textAlign = android.graphics.Paint.Align.CENTER
                 }
             )

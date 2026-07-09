@@ -2,10 +2,10 @@ package com.lianpo.clock.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -29,9 +29,9 @@ sealed class Screen(
     val title: String,
     val icon: ImageVector
 ) {
-    data object Timer : Screen("timer", "计时器", Icons.Default.Timer)
-    data object Tasks : Screen("tasks", "任务", Icons.Default.CheckCircle)
-    data object Statistics : Screen("statistics", "统计", Icons.Default.BarChart)
+    data object Timer : Screen("timer", "计时器", Icons.Default.Schedule)
+    data object Tasks : Screen("tasks", "任务", Icons.Default.Done)
+    data object Statistics : Screen("statistics", "统计", Icons.Default.DateRange)
     data object Settings : Screen("settings", "设置", Icons.Default.Settings)
 }
 

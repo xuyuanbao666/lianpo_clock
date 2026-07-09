@@ -172,6 +172,7 @@ private fun SettingSlider(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SoundSettingsSection(
     selectedSound: String,

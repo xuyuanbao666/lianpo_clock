@@ -91,11 +91,9 @@ fun TaskItem(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     LinearProgressIndicator(
-                        progress = {
-                            if (task.targetPomodoroCount > 0) {
-                                task.pomodoroCount.toFloat() / task.targetPomodoroCount
-                            } else 0f
-                        },
+                        progress = if (task.targetPomodoroCount > 0) {
+                            task.pomodoroCount.toFloat() / task.targetPomodoroCount
+                        } else 0f,
                         modifier = Modifier
                             .weight(1f)
                             .height(4.dp),
