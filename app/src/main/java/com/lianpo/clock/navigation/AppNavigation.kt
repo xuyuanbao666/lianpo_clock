@@ -23,6 +23,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.lianpo.clock.ui.timer.TimerScreen
+import com.lianpo.clock.ui.tasks.TaskListScreen
+import com.lianpo.clock.ui.statistics.StatisticsScreen
+import com.lianpo.clock.ui.settings.SettingsScreen
 
 sealed class Screen(
     val route: String,
@@ -83,29 +87,9 @@ fun AppNavigation() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Timer.route) { TimerScreen() }
-            composable(Screen.Tasks.route) { TasksScreen() }
+            composable(Screen.Tasks.route) { TaskListScreen() }
             composable(Screen.Statistics.route) { StatisticsScreen() }
             composable(Screen.Settings.route) { SettingsScreen() }
         }
     }
-}
-
-@Composable
-private fun TimerScreen() {
-    Text("计时器")
-}
-
-@Composable
-private fun TasksScreen() {
-    Text("任务")
-}
-
-@Composable
-private fun StatisticsScreen() {
-    Text("统计")
-}
-
-@Composable
-private fun SettingsScreen() {
-    Text("设置")
 }
