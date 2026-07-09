@@ -1,5 +1,7 @@
 package com.lianpo.clock.ui.statistics
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -27,13 +32,16 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.lianpo.clock.ui.statistics.components.DailyChart
 import com.lianpo.clock.ui.statistics.components.WeeklyChart
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun StatisticsScreen(
+    onNavigateToPrivate: () -> Unit = {},
     viewModel: StatisticsViewModel = hiltViewModel()
 ) {
     val todayStats by viewModel.todayStats.collectAsState()
     val weeklyStats by viewModel.weeklyStats.collectAsState()
     val totalStats by viewModel.totalStats.collectAsState()
+    var clickCount by remember { mutableIntStateOf(0) }
 
     Scaffold { paddingValues ->
         Column(
@@ -47,7 +55,18 @@ fun StatisticsScreen(
                 text = "统计报告",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier
+                    .padding(bottom = 16.dp)
+                    .combinedClickable(
+                        onClick = {
+                            clickCount++
+                            if (clickCount >= 5) {
+                                clickCount = 0
+                                onNavigateToPrivate()
+                            }
+                        },
+                        onLongClick = { }
+                    )
             )
 
             Card(

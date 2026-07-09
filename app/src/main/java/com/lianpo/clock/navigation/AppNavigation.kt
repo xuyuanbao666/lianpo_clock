@@ -27,6 +27,7 @@ import com.lianpo.clock.ui.timer.TimerScreen
 import com.lianpo.clock.ui.tasks.TaskListScreen
 import com.lianpo.clock.ui.statistics.StatisticsScreen
 import com.lianpo.clock.ui.settings.SettingsScreen
+import com.lianpo.clock.ui.privatetracker.PrivateScreen
 
 sealed class Screen(
     val route: String,
@@ -56,27 +57,31 @@ fun AppNavigation() {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(currentScreen.title) }
-            )
+            if (currentDestination?.route != "private") {
+                TopAppBar(
+                    title = { Text(currentScreen.title) }
+                )
+            }
         },
         bottomBar = {
-            NavigationBar {
-                screens.forEach { screen ->
-                    NavigationBarItem(
-                        icon = { Icon(screen.icon, contentDescription = screen.title) },
-                        label = { Text(screen.title) },
-                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                        onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+            if (currentDestination?.route != "private") {
+                NavigationBar {
+                    screens.forEach { screen ->
+                        NavigationBarItem(
+                            icon = { Icon(screen.icon, contentDescription = screen.title) },
+                            label = { Text(screen.title) },
+                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -88,8 +93,19 @@ fun AppNavigation() {
         ) {
             composable(Screen.Timer.route) { TimerScreen() }
             composable(Screen.Tasks.route) { TaskListScreen() }
-            composable(Screen.Statistics.route) { StatisticsScreen() }
+            composable(Screen.Statistics.route) {
+                StatisticsScreen(
+                    onNavigateToPrivate = {
+                        navController.navigate("private")
+                    }
+                )
+            }
             composable(Screen.Settings.route) { SettingsScreen() }
+            composable("private") {
+                PrivateScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
