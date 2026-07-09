@@ -36,6 +36,12 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
     
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.3"
@@ -72,4 +78,13 @@ dependencies {
     
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    // Unit Testing
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.mockito:mockito-core:5.5.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("androidx.room:room-testing:2.6.0")
+    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("androidx.test:core-ktx:1.5.0")
 }
