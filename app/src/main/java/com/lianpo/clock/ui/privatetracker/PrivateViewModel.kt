@@ -40,8 +40,17 @@ class PrivateViewModel @Inject constructor(
     private val _totalCount = MutableStateFlow(0)
     val totalCount: StateFlow<Int> = _totalCount.asStateFlow()
 
-    private val _recentRecords = MutableStateFlow<List<PrivateRecord>>(emptyList())
-    val recentRecords: StateFlow<List<PrivateRecord>> = _recentRecords.asStateFlow()
+    private val _selectedMonthRecords = MutableStateFlow<List<PrivateRecord>>(emptyList())
+    val selectedMonthRecords: StateFlow<List<PrivateRecord>> = _selectedMonthRecords.asStateFlow()
+
+    private val _selectedYear = MutableStateFlow(Calendar.getInstance().get(Calendar.YEAR))
+    val selectedYear: StateFlow<Int> = _selectedYear.asStateFlow()
+
+    private val _selectedMonth = MutableStateFlow(Calendar.getInstance().get(Calendar.MONTH))
+    val selectedMonth: StateFlow<Int> = _selectedMonth.asStateFlow()
+
+    private val _selectedMonthCount = MutableStateFlow(0)
+    val selectedMonthCount: StateFlow<Int> = _selectedMonthCount.asStateFlow()
 
     private val _weeklyData = MutableStateFlow<List<DailyCount>>(emptyList())
     val weeklyData: StateFlow<List<DailyCount>> = _weeklyData.asStateFlow()
@@ -58,6 +67,7 @@ class PrivateViewModel @Inject constructor(
     init {
         loadStats()
         loadMemos()
+        loadSelectedMonthRecords()
     }
 
     private fun loadMemos() {
@@ -93,6 +103,52 @@ class PrivateViewModel @Inject constructor(
 
     fun hideAddMemoDialog() {
         _showAddMemo.value = false
+    }
+
+    fun selectMonth(year: Int, month: Int) {
+        _selectedYear.value = year
+        _selectedMonth.value = month
+        loadSelectedMonthRecords()
+    }
+
+    fun previousMonth() {
+        val cal = Calendar.getInstance()
+        cal.set(_selectedYear.value, _selectedMonth.value, 1)
+        cal.add(Calendar.MONTH, -1)
+        _selectedYear.value = cal.get(Calendar.YEAR)
+        _selectedMonth.value = cal.get(Calendar.MONTH)
+        loadSelectedMonthRecords()
+    }
+
+    fun nextMonth() {
+        val cal = Calendar.getInstance()
+        cal.set(_selectedYear.value, _selectedMonth.value, 1)
+        cal.add(Calendar.MONTH, 1)
+        _selectedYear.value = cal.get(Calendar.YEAR)
+        _selectedMonth.value = cal.get(Calendar.MONTH)
+        loadSelectedMonthRecords()
+    }
+
+    private fun loadSelectedMonthRecords() {
+        viewModelScope.launch {
+            val cal = Calendar.getInstance()
+            cal.set(_selectedYear.value, _selectedMonth.value, 1, 0, 0, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            val monthStart = cal.timeInMillis
+
+            cal.add(Calendar.MONTH, 1)
+            val monthEnd = cal.timeInMillis
+
+            privateRecordDao.getRecordsBetween(monthStart, monthEnd).collect { records ->
+                _selectedMonthRecords.value = records
+                _selectedMonthCount.value = records.size
+            }
+        }
+    }
+
+    fun getMonthName(): String {
+        val months = listOf("一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月")
+        return "${_selectedYear.value}年 ${months[_selectedMonth.value]}"
     }
 
     fun loadStats() {
@@ -140,7 +196,6 @@ class PrivateViewModel @Inject constructor(
 
             privateRecordDao.getAllRecords().collect { records ->
                 _totalCount.value = records.size
-                _recentRecords.value = records.take(60)
             }
         }
 
@@ -188,6 +243,7 @@ class PrivateViewModel @Inject constructor(
         viewModelScope.launch {
             privateRecordDao.insert(PrivateRecord())
             loadStats()
+            loadSelectedMonthRecords()
         }
     }
 
@@ -195,6 +251,7 @@ class PrivateViewModel @Inject constructor(
         viewModelScope.launch {
             privateRecordDao.delete(record)
             loadStats()
+            loadSelectedMonthRecords()
         }
     }
 
@@ -202,6 +259,7 @@ class PrivateViewModel @Inject constructor(
         viewModelScope.launch {
             privateRecordDao.update(record.copy(mood = mood))
             loadStats()
+            loadSelectedMonthRecords()
         }
     }
 
@@ -209,6 +267,7 @@ class PrivateViewModel @Inject constructor(
         viewModelScope.launch {
             privateRecordDao.update(record.copy(memo = memo))
             loadStats()
+            loadSelectedMonthRecords()
         }
     }
 
