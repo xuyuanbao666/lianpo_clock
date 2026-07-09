@@ -2,7 +2,9 @@ package com.lianpo.clock.ui.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.Uri
 import androidx.lifecycle.ViewModel
+import com.lianpo.clock.util.SoundPlayer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,12 +18,14 @@ data class SettingsUiState(
     val longBreakDuration: Int = 15,
     val longBreakInterval: Int = 4,
     val selectedSound: String = "default",
-    val notificationsEnabled: Boolean = true
+    val notificationsEnabled: Boolean = true,
+    val customSounds: List<Pair<String, String>> = emptyList()
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val soundPlayer: SoundPlayer
 ) : ViewModel() {
 
     companion object {
@@ -42,6 +46,7 @@ class SettingsViewModel @Inject constructor(
 
     init {
         loadSettings()
+        loadCustomSounds()
     }
 
     fun updateWorkDuration(value: Int) {
@@ -62,10 +67,40 @@ class SettingsViewModel @Inject constructor(
 
     fun updateSelectedSound(value: String) {
         _uiState.value = _uiState.value.copy(selectedSound = value)
+        saveSettings()
     }
 
     fun updateNotificationsEnabled(value: Boolean) {
         _uiState.value = _uiState.value.copy(notificationsEnabled = value)
+    }
+
+    fun importSound(uri: Uri) {
+        val fileName = soundPlayer.importSound(uri)
+        if (fileName != null) {
+            loadCustomSounds()
+            // 自动选择新导入的铃声
+            updateSelectedSound("custom_$fileName")
+        }
+    }
+
+    fun deleteCustomSound(soundKey: String) {
+        val fileName = soundKey.removePrefix("custom_")
+        soundPlayer.deleteCustomSound(fileName)
+        loadCustomSounds()
+        // 如果删除的是当前选中的铃声，切换回默认
+        if (_uiState.value.selectedSound == soundKey) {
+            updateSelectedSound("default")
+        }
+    }
+
+    fun testSound(soundType: String) {
+        soundPlayer.playSound(soundType)
+    }
+
+    private fun loadCustomSounds() {
+        _uiState.value = _uiState.value.copy(
+            customSounds = soundPlayer.getCustomSounds()
+        )
     }
 
     fun saveSettings() {
