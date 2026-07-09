@@ -18,7 +18,7 @@ enum class PomodoroType {
             entity = Task::class,
             parentColumns = ["id"],
             childColumns = ["taskId"],
-            onDelete = ForeignKey.CASCADE
+            onDelete = ForeignKey.SET_NULL
         )
     ],
     indices = [Index(value = ["taskId"])]

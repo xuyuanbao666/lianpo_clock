@@ -15,7 +15,7 @@ import com.lianpo.clock.data.database.entity.Task
 
 @Database(
     entities = [Task::class, PomodoroRecord::class, PrivateRecord::class, Memo::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -35,7 +35,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "lianpo_clock_database"
-                ).fallbackToDestructiveMigration()
+                )
+                .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigrationOnDowngrade()
                 .build()
                 INSTANCE = instance
                 instance
