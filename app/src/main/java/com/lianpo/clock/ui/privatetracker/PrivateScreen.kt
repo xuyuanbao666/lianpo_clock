@@ -1,7 +1,9 @@
 package com.lianpo.clock.ui.privatetracker
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -353,6 +355,7 @@ fun PrivateScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RecordGrid(
     records: List<com.lianpo.clock.data.database.entity.PrivateRecord>,
@@ -407,6 +410,10 @@ private fun RecordGrid(
                             .aspectRatio(1.8f)
                             .clip(RoundedCornerShape(6.dp))
                             .background(bgColor)
+                            .combinedClickable(
+                                onClick = { },
+                                onLongClick = { showDeleteDialog = record }
+                            )
                             .padding(4.dp)
                     ) {
                         Column(
