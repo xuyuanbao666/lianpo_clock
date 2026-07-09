@@ -37,9 +37,6 @@ class PrivateViewModel @Inject constructor(
     private val _yearCount = MutableStateFlow(0)
     val yearCount: StateFlow<Int> = _yearCount.asStateFlow()
 
-    private val _totalCount = MutableStateFlow(0)
-    val totalCount: StateFlow<Int> = _totalCount.asStateFlow()
-
     private val _selectedMonthRecords = MutableStateFlow<List<PrivateRecord>>(emptyList())
     val selectedMonthRecords: StateFlow<List<PrivateRecord>> = _selectedMonthRecords.asStateFlow()
 
@@ -71,9 +68,60 @@ class PrivateViewModel @Inject constructor(
     val selectedDayRecords: StateFlow<List<PrivateRecord>> = _selectedDayRecords.asStateFlow()
 
     init {
-        loadStats()
+        loadAllData()
         loadMemos()
-        loadSelectedMonthRecords()
+    }
+
+    private fun loadAllData() {
+        viewModelScope.launch {
+            loadCounts()
+            loadSelectedMonthRecords()
+            loadWeeklyData()
+            loadMonthlyData()
+        }
+    }
+
+    private suspend fun loadCounts() {
+        val cal = Calendar.getInstance()
+        val now = System.currentTimeMillis()
+
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val todayStart = cal.timeInMillis
+        cal.add(Calendar.DAY_OF_MONTH, 1)
+        val todayEnd = cal.timeInMillis
+
+        cal.timeInMillis = now
+        cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val weekStart = cal.timeInMillis
+
+        cal.timeInMillis = now
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val monthStart = cal.timeInMillis
+
+        cal.timeInMillis = now
+        cal.set(Calendar.MONTH, Calendar.JANUARY)
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val yearStart = cal.timeInMillis
+
+        _todayCount.value = privateRecordDao.getCountBetween(todayStart, todayEnd)
+        _weekCount.value = privateRecordDao.getCountBetween(weekStart, now)
+        _monthCount.value = privateRecordDao.getCountBetween(monthStart, now)
+        _yearCount.value = privateRecordDao.getCountBetween(yearStart, now)
     }
 
     private fun loadMemos() {
@@ -113,30 +161,22 @@ class PrivateViewModel @Inject constructor(
 
     fun selectDay(day: Int) {
         _selectedDay.value = day
-        loadSelectedDayRecords()
+        filterDayRecords()
     }
 
-    private fun loadSelectedDayRecords() {
-        viewModelScope.launch {
-            val day = _selectedDay.value ?: return@launch
-            val cal = Calendar.getInstance()
-            cal.set(_selectedYear.value, _selectedMonth.value, day, 0, 0, 0)
-            cal.set(Calendar.MILLISECOND, 0)
-            val dayStart = cal.timeInMillis
+    private fun filterDayRecords() {
+        val day = _selectedDay.value ?: return
+        val records = _selectedMonthRecords.value
+        val cal = Calendar.getInstance()
+        cal.set(_selectedYear.value, _selectedMonth.value, day, 0, 0, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val dayStart = cal.timeInMillis
+        cal.add(Calendar.DAY_OF_MONTH, 1)
+        val dayEnd = cal.timeInMillis
 
-            cal.add(Calendar.DAY_OF_MONTH, 1)
-            val dayEnd = cal.timeInMillis
-
-            _selectedDayRecords.value = _selectedMonthRecords.value.filter { record ->
-                record.timestamp >= dayStart && record.timestamp < dayEnd
-            }.sortedBy { it.timestamp }
-        }
-    }
-
-    fun selectMonth(year: Int, month: Int) {
-        _selectedYear.value = year
-        _selectedMonth.value = month
-        loadSelectedMonthRecords()
+        _selectedDayRecords.value = records.filter { record ->
+            record.timestamp >= dayStart && record.timestamp < dayEnd
+        }.sortedBy { it.timestamp }
     }
 
     fun previousMonth() {
@@ -167,140 +207,120 @@ class PrivateViewModel @Inject constructor(
             cal.set(_selectedYear.value, _selectedMonth.value, 1, 0, 0, 0)
             cal.set(Calendar.MILLISECOND, 0)
             val monthStart = cal.timeInMillis
-
             cal.add(Calendar.MONTH, 1)
             val monthEnd = cal.timeInMillis
 
             privateRecordDao.getRecordsBetween(monthStart, monthEnd).collect { records ->
                 _selectedMonthRecords.value = records
                 _selectedMonthCount.value = records.size
+                filterDayRecords()
             }
         }
     }
 
-    fun getMonthName(): String {
-        val months = listOf("一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月")
-        return "${_selectedYear.value}年 ${months[_selectedMonth.value]}"
-    }
+    private suspend fun loadWeeklyData() {
+        val weekly = mutableListOf<DailyCount>()
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
 
-    fun loadStats() {
-        viewModelScope.launch {
-            val cal = Calendar.getInstance()
-            val now = System.currentTimeMillis()
-
-            cal.set(Calendar.HOUR_OF_DAY, 0)
-            cal.set(Calendar.MINUTE, 0)
-            cal.set(Calendar.SECOND, 0)
-            cal.set(Calendar.MILLISECOND, 0)
-            val todayStart = cal.timeInMillis
+        for (i in 0 until 7) {
+            val dayStart = cal.timeInMillis
             cal.add(Calendar.DAY_OF_MONTH, 1)
-            val todayEnd = cal.timeInMillis
-
-            cal.timeInMillis = System.currentTimeMillis()
-            cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
-            cal.set(Calendar.HOUR_OF_DAY, 0)
-            cal.set(Calendar.MINUTE, 0)
-            cal.set(Calendar.SECOND, 0)
-            cal.set(Calendar.MILLISECOND, 0)
-            val weekStart = cal.timeInMillis
-
-            cal.timeInMillis = System.currentTimeMillis()
-            cal.set(Calendar.DAY_OF_MONTH, 1)
-            cal.set(Calendar.HOUR_OF_DAY, 0)
-            cal.set(Calendar.MINUTE, 0)
-            cal.set(Calendar.SECOND, 0)
-            cal.set(Calendar.MILLISECOND, 0)
-            val monthStart = cal.timeInMillis
-
-            cal.timeInMillis = System.currentTimeMillis()
-            cal.set(Calendar.MONTH, Calendar.JANUARY)
-            cal.set(Calendar.DAY_OF_MONTH, 1)
-            cal.set(Calendar.HOUR_OF_DAY, 0)
-            cal.set(Calendar.MINUTE, 0)
-            cal.set(Calendar.SECOND, 0)
-            cal.set(Calendar.MILLISECOND, 0)
-            val yearStart = cal.timeInMillis
-
-            _todayCount.value = privateRecordDao.getCountBetween(todayStart, todayEnd)
-            _weekCount.value = privateRecordDao.getCountBetween(weekStart, now)
-            _monthCount.value = privateRecordDao.getCountBetween(monthStart, now)
-            _yearCount.value = privateRecordDao.getCountBetween(yearStart, now)
-
-            privateRecordDao.getAllRecords().collect { records ->
-                _totalCount.value = records.size
-            }
+            val dayEnd = cal.timeInMillis
+            val count = privateRecordDao.getCountBetween(dayStart, dayEnd)
+            weekly.add(DailyCount(dayStart, count))
         }
+        _weeklyData.value = weekly
+    }
 
-        viewModelScope.launch {
-            val weekly = mutableListOf<DailyCount>()
-            val cal = Calendar.getInstance()
-            cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
-            cal.set(Calendar.HOUR_OF_DAY, 0)
-            cal.set(Calendar.MINUTE, 0)
-            cal.set(Calendar.SECOND, 0)
-            cal.set(Calendar.MILLISECOND, 0)
+    private suspend fun loadMonthlyData() {
+        val monthly = mutableListOf<DailyCount>()
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
 
-            for (i in 0 until 7) {
-                val dayStart = cal.timeInMillis
-                cal.add(Calendar.DAY_OF_MONTH, 1)
-                val dayEnd = cal.timeInMillis
-                val count = privateRecordDao.getCountBetween(dayStart, dayEnd)
-                weekly.add(DailyCount(dayStart, count))
-            }
-            _weeklyData.value = weekly
+        val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+        for (i in 0 until daysInMonth) {
+            val dayStart = cal.timeInMillis
+            cal.add(Calendar.DAY_OF_MONTH, 1)
+            val dayEnd = cal.timeInMillis
+            val count = privateRecordDao.getCountBetween(dayStart, dayEnd)
+            monthly.add(DailyCount(dayStart, count))
         }
-
-        viewModelScope.launch {
-            val monthly = mutableListOf<DailyCount>()
-            val cal = Calendar.getInstance()
-            cal.set(Calendar.DAY_OF_MONTH, 1)
-            cal.set(Calendar.HOUR_OF_DAY, 0)
-            cal.set(Calendar.MINUTE, 0)
-            cal.set(Calendar.SECOND, 0)
-            cal.set(Calendar.MILLISECOND, 0)
-
-            val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-            for (i in 0 until daysInMonth) {
-                val dayStart = cal.timeInMillis
-                cal.add(Calendar.DAY_OF_MONTH, 1)
-                val dayEnd = cal.timeInMillis
-                val count = privateRecordDao.getCountBetween(dayStart, dayEnd)
-                monthly.add(DailyCount(dayStart, count))
-            }
-            _monthlyData.value = monthly
-        }
+        _monthlyData.value = monthly
     }
 
     fun addRecord() {
         viewModelScope.launch {
             privateRecordDao.insert(PrivateRecord())
-            loadStats()
-            loadSelectedMonthRecords()
+            refreshData()
         }
     }
 
     fun deleteRecord(record: PrivateRecord) {
         viewModelScope.launch {
+            // 先从本地列表移除，立即更新UI
+            _selectedMonthRecords.value = _selectedMonthRecords.value.filter { it.id != record.id }
+            _selectedMonthCount.value = _selectedMonthRecords.value.size
+            _selectedDayRecords.value = _selectedDayRecords.value.filter { it.id != record.id }
+
+            // 然后从数据库删除
             privateRecordDao.delete(record)
-            loadStats()
-            loadSelectedMonthRecords()
+
+            // 刷新统计数据
+            loadCounts()
+            loadWeeklyData()
+            loadMonthlyData()
         }
     }
 
     fun updateRecordMood(record: PrivateRecord, mood: String) {
         viewModelScope.launch {
-            privateRecordDao.update(record.copy(mood = mood))
-            loadStats()
-            loadSelectedMonthRecords()
+            val updated = record.copy(mood = mood)
+            privateRecordDao.update(updated)
+
+            // 更新本地列表
+            _selectedMonthRecords.value = _selectedMonthRecords.value.map {
+                if (it.id == record.id) updated else it
+            }
+            _selectedDayRecords.value = _selectedDayRecords.value.map {
+                if (it.id == record.id) updated else it
+            }
         }
     }
 
     fun updateRecordMemo(record: PrivateRecord, memo: String) {
         viewModelScope.launch {
-            privateRecordDao.update(record.copy(memo = memo))
-            loadStats()
-            loadSelectedMonthRecords()
+            val updated = record.copy(memo = memo)
+            privateRecordDao.update(updated)
+
+            // 更新本地列表
+            _selectedMonthRecords.value = _selectedMonthRecords.value.map {
+                if (it.id == record.id) updated else it
+            }
+            _selectedDayRecords.value = _selectedDayRecords.value.map {
+                if (it.id == record.id) updated else it
+            }
         }
+    }
+
+    private suspend fun refreshData() {
+        loadCounts()
+        loadSelectedMonthRecords()
+        loadWeeklyData()
+        loadMonthlyData()
+    }
+
+    fun getMonthName(): String {
+        val months = listOf("一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月")
+        return "${_selectedYear.value}年 ${months[_selectedMonth.value]}"
     }
 
     fun getFrequency(): String {

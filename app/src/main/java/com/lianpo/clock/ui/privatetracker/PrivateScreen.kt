@@ -4,7 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -49,7 +48,7 @@ private val MOODS = listOf(
     "🥰" to "幸福"
 )
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrivateScreen(
     onBack: () -> Unit,
@@ -67,16 +66,15 @@ fun PrivateScreen(
     val memos by viewModel.memos.collectAsState()
     val showAddMemo by viewModel.showAddMemo.collectAsState()
     val selectedDay by viewModel.selectedDay.collectAsState()
-    val dateFormat = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
     val fullDateFormat = remember { SimpleDateFormat("yyyy年MM月dd日 HH:mm", Locale.getDefault()) }
     val dayTimeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val memoDateFormat = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
     var memoText by remember { mutableStateOf("") }
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedRecord by remember { mutableStateOf<com.lianpo.clock.data.database.entity.PrivateRecord?>(null) }
     var showMemoInput by remember { mutableStateOf(false) }
     var recordMemoText by remember { mutableStateOf("") }
 
-    // 添加备忘录对话框
     if (showAddMemo) {
         AlertDialog(
             onDismissRequest = { viewModel.hideAddMemoDialog() },
@@ -104,7 +102,6 @@ fun PrivateScreen(
         )
     }
 
-    // 记录详情弹窗
     selectedRecord?.let { record ->
         AlertDialog(
             onDismissRequest = { selectedRecord = null },
@@ -244,11 +241,9 @@ fun PrivateScreen(
 
             when (selectedTab) {
                 0 -> {
-                    // 月份选择器 + 日历
                     item {
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(12.dp)) {
-                                // 月份切换
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -265,25 +260,13 @@ fun PrivateScreen(
                                         Icon(Icons.Default.ChevronRight, contentDescription = "下个月")
                                     }
                                 }
-
                                 Spacer(modifier = Modifier.height(8.dp))
-
-                                // 日历头部
                                 Row(modifier = Modifier.fillMaxWidth()) {
                                     listOf("一", "二", "三", "四", "五", "六", "日").forEach { day ->
-                                        Text(
-                                            text = day,
-                                            modifier = Modifier.weight(1f),
-                                            textAlign = TextAlign.Center,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                        Text(text = day, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
-
                                 Spacer(modifier = Modifier.height(4.dp))
-
-                                // 日历网格
                                 CalendarGrid(
                                     year = viewModel.selectedYear.collectAsState().value,
                                     month = viewModel.selectedMonth.collectAsState().value,
@@ -295,7 +278,6 @@ fun PrivateScreen(
                         }
                     }
 
-                    // 选中日期的记录
                     if (selectedDay != null) {
                         item {
                             Card(
@@ -319,46 +301,17 @@ fun PrivateScreen(
                                             color = MaterialTheme.colorScheme.onSecondaryContainer
                                         )
                                     }
-
                                     Spacer(modifier = Modifier.height(8.dp))
-
                                     if (selectedDayRecords.isEmpty()) {
-                                        Text(
-                                            text = "当天暂无记录",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                                        )
+                                        Text(text = "当天暂无记录", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f))
                                     } else {
                                         selectedDayRecords.forEach { record ->
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .clickable { selectedRecord = record }
-                                                    .padding(vertical = 6.dp, horizontal = 8.dp),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    if (record.mood.isNotEmpty()) {
-                                                        Text(text = record.mood, fontSize = 18.sp, modifier = Modifier.padding(end = 8.dp))
-                                                    }
-                                                    Text(
-                                                        text = dayTimeFormat.format(Date(record.timestamp)),
-                                                        style = MaterialTheme.typography.bodyMedium
-                                                    )
-                                                }
-                                                if (record.memo.isNotEmpty()) {
-                                                    Text(
-                                                        text = record.memo,
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                        modifier = Modifier.widthIn(max = 120.dp)
-                                                    )
-                                                }
-                                            }
+                                            DayRecordItem(
+                                                record = record,
+                                                timeFormat = dayTimeFormat,
+                                                onClick = { selectedRecord = record },
+                                                onDelete = { viewModel.deleteRecord(it) }
+                                            )
                                         }
                                     }
                                 }
@@ -396,33 +349,105 @@ fun PrivateScreen(
                             }
                         }
                     } else {
-                        items(memos) { memo ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (memo.isPinned) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                )
-                            ) {
-                                Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(text = memo.content, style = MaterialTheme.typography.bodyMedium)
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(text = dateFormat.format(Date(memo.timestamp)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                    IconButton(onClick = { viewModel.togglePinMemo(memo) }, modifier = Modifier.size(32.dp)) {
-                                        Icon(Icons.Default.PushPin, contentDescription = "置顶", tint = if (memo.isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                                    }
-                                    IconButton(onClick = { viewModel.deleteMemo(memo) }, modifier = Modifier.size(32.dp)) {
-                                        Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                                    }
-                                }
-                            }
+                        items(memos, key = { it.id }) { memo ->
+                            MemoItem(
+                                memo = memo,
+                                dateFormat = memoDateFormat,
+                                onTogglePin = { viewModel.togglePinMemo(it) },
+                                onDelete = { viewModel.deleteMemo(it) }
+                            )
                         }
                     }
                 }
             }
 
             item { Spacer(modifier = Modifier.height(80.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun DayRecordItem(
+    record: com.lianpo.clock.data.database.entity.PrivateRecord,
+    timeFormat: SimpleDateFormat,
+    onClick: () -> Unit,
+    onDelete: (com.lianpo.clock.data.database.entity.PrivateRecord) -> Unit
+) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("删除记录") },
+            text = { Text("确定要删除这条记录吗？") },
+            confirmButton = {
+                TextButton(onClick = { onDelete(record); showDeleteConfirm = false }) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("取消") }
+            }
+        )
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(vertical = 6.dp, horizontal = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (record.mood.isNotEmpty()) {
+                Text(text = record.mood, fontSize = 18.sp, modifier = Modifier.padding(end = 8.dp))
+            }
+            Column {
+                Text(text = timeFormat.format(Date(record.timestamp)), style = MaterialTheme.typography.bodyMedium)
+                if (record.memo.isNotEmpty()) {
+                    Text(
+                        text = record.memo,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+        IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun MemoItem(
+    memo: com.lianpo.clock.data.database.entity.Memo,
+    dateFormat: SimpleDateFormat,
+    onTogglePin: (com.lianpo.clock.data.database.entity.Memo) -> Unit,
+    onDelete: (com.lianpo.clock.data.database.entity.Memo) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (memo.isPinned) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = memo.content, style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = dateFormat.format(Date(memo.timestamp)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = { onTogglePin(memo) }, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.PushPin, contentDescription = "置顶", tint = if (memo.isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+            }
+            IconButton(onClick = { onDelete(memo) }, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+            }
         }
     }
 }
@@ -438,12 +463,13 @@ private fun CalendarGrid(
     val cal = Calendar.getInstance()
     cal.set(year, month, 1)
     val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-    val firstDayOfWeek = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7 // 转换为周一开始
+    val firstDayOfWeek = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7
 
-    // 统计每天的记录数和心情
-    val dayRecordsMap = records.groupBy { record ->
-        val c = Calendar.getInstance().apply { timeInMillis = record.timestamp }
-        c.get(Calendar.DAY_OF_MONTH)
+    val dayRecordsMap = remember(records) {
+        records.groupBy { record ->
+            val c = Calendar.getInstance().apply { timeInMillis = record.timestamp }
+            c.get(Calendar.DAY_OF_MONTH)
+        }
     }
 
     val today = Calendar.getInstance()
@@ -452,7 +478,6 @@ private fun CalendarGrid(
 
     val primaryColor = MaterialTheme.colorScheme.primary
     val selectedBgColor = MaterialTheme.colorScheme.primaryContainer
-    val todayBorderColor = MaterialTheme.colorScheme.primary
     val surfaceVariantColor = MaterialTheme.colorScheme.surfaceVariant
 
     Column {
@@ -484,19 +509,10 @@ private fun CalendarGrid(
                                         else -> Color.Transparent
                                     }
                                 )
-                                .then(
-                                    if (isToday) Modifier.background(Color.Transparent, CircleShape)
-                                        .padding(1.dp)
-                                        .background(Color.Transparent, CircleShape)
-                                    else Modifier
-                                )
                                 .clickable { onDayClick(day) },
                             contentAlignment = Alignment.Center
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                                 Text(
                                     text = "$day",
                                     style = MaterialTheme.typography.bodySmall,
@@ -510,11 +526,7 @@ private fun CalendarGrid(
                                 if (mainMood != null) {
                                     Text(text = mainMood, fontSize = 10.sp)
                                 } else if (count > 0) {
-                                    Text(
-                                        text = "$count",
-                                        fontSize = 9.sp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                    Text(text = "$count", fontSize = 9.sp, color = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
