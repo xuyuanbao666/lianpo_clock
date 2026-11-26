@@ -19,5 +19,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+      - name: Install Android SDK 34
+        shell: bash
+        run: |
+          sdk="${ANDROID_HOME:?Android SDK not found}"
+          manager="$sdk/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$manager" ]]; then
+            manager="$(find "$sdk/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          fi
+          test -x "$manager"
+          "$manager" "platforms;android-34" "build-tools;34.0.0"
       - run: bash gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
