@@ -39,8 +39,8 @@ class PomodoroDaoTest {
         taskDao = database.taskDao()
 
         // Insert a parent task first (required by foreign key)
-        taskId = runTest {
-            taskDao.insertTask(Task(title = "Parent Task"))
+        runTest {
+            taskId = taskDao.insertTask(Task(title = "Parent Task"))
         }
     }
 
