@@ -1,5 +1,9 @@
 package com.lianpo.clock.ui.timer
 
+import android.content.Context
+import android.content.SharedPreferences
+import kotlinx.coroutines.flow.flowOf
+import org.mockito.Mockito.`when`
 import com.lianpo.clock.data.repository.PomodoroRepository
 import com.lianpo.clock.data.repository.TaskRepository
 import com.lianpo.clock.util.SoundPlayer
@@ -34,11 +38,20 @@ class TimerViewModelTest {
         pomodoroRepository = mock(PomodoroRepository::class.java)
         taskRepository = mock(TaskRepository::class.java)
         soundPlayer = mock(SoundPlayer::class.java)
-        viewModel = TimerViewModel(pomodoroRepository, taskRepository, soundPlayer)
+        val context = mock(Context::class.java)
+        val prefs = mock(SharedPreferences::class.java)
+        `when`(context.getSharedPreferences("lianpo_clock_settings", Context.MODE_PRIVATE)).thenReturn(prefs)
+        `when`(prefs.getInt("work_duration", 25)).thenReturn(25)
+        `when`(prefs.getInt("short_break_duration", 5)).thenReturn(5)
+        `when`(prefs.getInt("long_break_duration", 15)).thenReturn(15)
+        `when`(prefs.getInt("long_break_interval", 4)).thenReturn(4)
+        `when`(taskRepository.getActiveTasks()).thenReturn(flowOf(emptyList()))
+        viewModel = TimerViewModel(pomodoroRepository, taskRepository, soundPlayer, context)
     }
 
     @After
     fun tearDown() {
+        viewModel.resetTimer()
         Dispatchers.resetMain()
     }
 
@@ -124,23 +137,23 @@ class TimerViewModelTest {
     }
 
     @Test
-    fun `setCurrentTask should update current task`() {
+    fun `selectTask should update current task`() {
         val task = com.lianpo.clock.data.database.entity.Task(
             id = 1L,
             title = "Test Task"
         )
-        viewModel.setCurrentTask(task)
+        viewModel.selectTask(task)
         assertEquals(task, viewModel.currentTask.value)
     }
 
     @Test
-    fun `setCurrentTask null should clear current task`() {
+    fun `selectTask null should clear current task`() {
         val task = com.lianpo.clock.data.database.entity.Task(
             id = 1L,
             title = "Test Task"
         )
-        viewModel.setCurrentTask(task)
-        viewModel.setCurrentTask(null)
+        viewModel.selectTask(task)
+        viewModel.selectTask(null)
         assertEquals(null, viewModel.currentTask.value)
     }
 
@@ -163,6 +176,6 @@ class TimerViewModelTest {
         // With UnconfinedTestDispatcher, coroutines execute eagerly
         // After start, progress should still be close to 0
         val progress = viewModel.getProgress()
-        assert(progress >= 0f && progress <= 1f)
+        org.junit.Assert.assertTrue(progress >= 0f && progress <= 1f)
     }
 }
